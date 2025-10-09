@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Subtracting Like Fraction — Quiz (10 Questions)</title>
+<style>
+  :root{
+    --ink:#0f172a; --muted:#475569; --line:#e2e8f0;
+    --blue:#9bbce6; --stroke:#111827;
+    --good:#16a34a; --bad:#dc2626;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font:17px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial; color:var(--ink);
+       background:linear-gradient(180deg,#fff7ed,#eef6ff 60%)}
+  header{max-width:900px;margin:22px auto 0;padding:0 16px}
+  h1{margin:0 0 6px; font-size:26px}
+  .note{color:var(--muted); margin-bottom:8px}
+  .meta{display:flex;gap:14px;align-items:center;font-weight:800}
+
+  main{max-width:900px;margin:14px auto 28px;padding:0 16px}
+  .card{background:#fff;border:2px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 6px 16px rgba(17,24,39,.06)}
+  /* 5 fixed columns so text lines up */
+  .row{display:grid;grid-template-columns:260px 40px 260px 40px 260px;gap:12px;align-items:center}
+  .col{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .eq{font-size:28px;font-weight:900;text-align:center}
+
+  .frac{display:inline-grid;grid-template-rows:auto auto;justify-items:center;min-width:84px;padding:6px 10px;border-radius:12px;background:#fffef5}
+  .frac .num{border-bottom:3px solid var(--ink);width:100%;text-align:center;font-weight:900;font-size:22px}
+  .frac .den{padding-top:2px;font-size:18px;font-weight:800}
+
+  .answer{
+    display:inline-grid;grid-template-rows:auto auto;justify-items:center;min-width:94px;
+    padding:6px 10px;border-radius:12px;background:#fff;box-shadow:inset 0 -2px 0 rgba(0,0,0,.03);
+    margin-top:12px
+  }
+  .answer input{width:86px;text-align:center;font-weight:900;font-size:20px;padding:6px 8px;border-radius:10px;border:2px solid var(--line)}
+  .answer .line{width:100%;border-bottom:3px solid var(--ink);margin:6px 0}
+
+  .viz{min-height:40px}
+  .status{font-weight:900;margin-top:6px; min-height:1.2em}
+  .ok{color:var(--good)} .no{color:var(--bad)}
+  .controls{display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+  button{padding:10px 14px;border:none;border-radius:12px;background:#7c3aed;color:#fff;font-weight:800}
+  button.secondary{background:#fff;color:#0f172a;border:2px solid var(--line)}
+  .summary{display:none;margin-top:14px;padding:12px;border:2px solid var(--line);border-radius:12px;background:#fffef5}
+</style>
+</head>
+<body>
+<header>
+  <h1>Subtracting Like Fraction</h1>
+  <div class="note">Denominators are 2–12. Fractions are proper. The answer is <b>positive</b> and <b>not zero</b>.</div>
+  <div class="meta">
+    <div id="progress">Question 1 of 10</div>
+    <div id="scoreBox">Score: <span id="score">0</span>/10</div>
+  </div>
+</header>
+
+<main>
+  <div class="card" id="card">
+    <div class="row">
+      <!-- minuend (no pictorial under this) -->
+      <div class="col">
+        <div class="frac" id="fracA" aria-label="">
+          <span class="num" id="aN">3</span><span class="den" id="aD">5</span>
+        </div>
+      </div>
+
+      <div class="eq" aria-hidden="true">−</div>
+
+      <!-- subtrahend (no pictorial under this) -->
+      <div class="col">
+        <div class="frac" id="fracB" aria-label="">
+          <span class="num" id="bN">1</span><span class="den" id="bD">5</span>
+        </div>
+      </div>
+
+      <div class="eq" aria-hidden="true">=</div>
+
+      <!-- answer: pictorial bar + input only -->
+      <div class="col">
+        <div class="viz" id="barAns"></div>
+
+        <div class="answer" aria-label="type your answer as numerator over denominator">
+          <input id="inN" type="number" min="1" step="1" inputmode="numeric" placeholder="numerator">
+          <div class="line"></div>
+          <input id="inD" type="number" min="2" step="1" inputmode="numeric" placeholder="denominator">
+        </div>
+        <div class="status" id="status">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="check">Check Answer</button>
+      <button id="steps" class="secondary">Step 1: show what you have</button>
+      <button id="skip" class="secondary">Skip</button>
+    </div>
+
+    <div class="summary" id="summary"></div>
+  </div>
+</main>
+
+<!-- Added credit line -->
+<footer style="max-width:900px;margin:0 auto 16px;padding:0 16px;text-align:center;color:#475569;font-weight:600;">
+  Credit to Lim Kim Sze 2025
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- utils ----------
+  const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+  const gcd=(a,b)=>b?gcd(b,a%b):Math.abs(a);
+  const simplify=(n,d)=>{const g=gcd(n,d);return[n/g,d/g];};
+  const qs=(s, r=document)=>r.querySelector(s);
+
+  // ---------- bar drawing (answer pictorial only) ----------
+  // step = 0 (have), 1 (delete), 2 (left)
+  function drawSubBar(el, d, a, b, step){
+    const W=220, H=28, R=6, X0=6, Y0=6, segW=W/d;
+    const BLUE=getComputedStyle(document.documentElement).getPropertyValue('--blue') || '#9bbce6';
+    const STROKE=getComputedStyle(document.documentElement).getPropertyValue('--stroke') || '#111827';
+    const DASH='#7c3aed';
+
+    const needsArrow = step===1;
+    const topPad = needsArrow ? 14 : 0;
+
+    const svgNS='http://www.w3.org/2000/svg';
+    const svg=document.createElementNS(svgNS,'svg');
+    svg.setAttribute('width', W+X0*2);
+    svg.setAttribute('height', H+Y0*2 + topPad);
+
+    // arrowhead
+    if(needsArrow){
+      const defs=document.createElementNS(svgNS,'defs');
+      const marker=document.createElementNS(svgNS,'marker');
+      marker.setAttribute('id','arrowHead');
+      marker.setAttribute('markerWidth','10');
+      marker.setAttribute('markerHeight','7');
+      marker.setAttribute('refX','9');
+      marker.setAttribute('refY','3.5');
+      marker.setAttribute('orient','auto');
+      const tip=document.createElementNS(svgNS,'polygon');
+      tip.setAttribute('points','0 0, 10 3.5, 0 7');
+      tip.setAttribute('fill',STROKE);
+      marker.appendChild(tip);
+      defs.appendChild(marker);
+      svg.appendChild(defs);
+    }
+
+    const g=document.createElementNS(svgNS,'g');
+    g.setAttribute('transform',`translate(0,${topPad})`);
+    svg.appendChild(g);
+
+    const rect=(parent,x,w,fill,strokeCol=null,dash=null)=>{
+      const r=document.createElementNS(svgNS,'rect');
+      r.setAttribute('x',x); r.setAttribute('y',Y0);
+      r.setAttribute('width',w); r.setAttribute('height',H);
+      r.setAttribute('rx',R); r.setAttribute('ry',R);
+      r.setAttribute('fill', fill ?? 'transparent');
+      if(strokeCol){ r.setAttribute('stroke',strokeCol); r.setAttribute('stroke-width','2'); }
+      if(dash){ r.setAttribute('stroke-dasharray',dash); }
+      parent.appendChild(r);
+      return r;
+    };
+
+    const keep = Math.max(0, a-b);
+
+    if(step===0){
+      // what you have (minuend)
+      if(a>0) rect(g, X0, a*segW, BLUE);
+    } else if(step===1){
+      // what to delete (dashed + ✖) + arrow from keep to original a
+      if(keep>0) rect(g, X0, keep*segW, BLUE);
+      for(let i=keep;i<a;i++){
+        const x = X0 + i*segW;
+        rect(g, x, segW, 'transparent', DASH, '4 3');
+        const l1=document.createElementNS(svgNS,'line');
+        l1.setAttribute('x1', x+3); l1.setAttribute('y1', Y0+3);
+        l1.setAttribute('x2', x+segW-3); l1.setAttribute('y2', Y0+H-3);
+        l1.setAttribute('stroke', DASH); l1.setAttribute('stroke-width','2'); g.appendChild(l1);
+        const l2=document.createElementNS(svgNS,'line');
+        l2.setAttribute('x1', x+segW-3); l2.setAttribute('y1', Y0+3);
+        l2.setAttribute('x2', x+3); l2.setAttribute('y2', Y0+H-3);
+        l2.setAttribute('stroke', DASH); l2.setAttribute('stroke-width','2'); g.appendChild(l2);
+      }
+      const arrow=document.createElementNS(svgNS,'line');
+      const yArrow = Y0 - 8;
+      arrow.setAttribute('x1', X0 + keep*segW);
+      arrow.setAttribute('y1', yArrow);
+      arrow.setAttribute('x2', X0 + a*segW);
+      arrow.setAttribute('y2', yArrow);
+      arrow.setAttribute('stroke', STROKE);
+      arrow.setAttribute('stroke-width','2');
+      arrow.setAttribute('marker-end','url(#arrowHead)');
+      svg.appendChild(arrow);
+    } else {
+      // what is left (kept)
+      if(keep>0) rect(g, X0, keep*segW, BLUE);
+    }
+
+    // segment lines
+    for(let i=1;i<d;i++){
+      const x=X0+i*segW;
+      const ln=document.createElementNS(svgNS,'line');
+      ln.setAttribute('x1',x); ln.setAttribute('x2',x);
+      ln.setAttribute('y1',Y0+topPad); ln.setAttribute('y2',Y0+H+topPad);
+      ln.setAttribute('stroke',STROKE); ln.setAttribute('stroke-width','2');
+      svg.appendChild(ln);
+    }
+    // frame
+    const frame=document.createElementNS(svgNS,'rect');
+    frame.setAttribute('x',X0); frame.setAttribute('y',Y0+topPad);
+    frame.setAttribute('width',W); frame.setAttribute('height',H);
+    frame.setAttribute('rx',R); frame.setAttribute('ry',R);
+    frame.setAttribute('fill','none');
+    frame.setAttribute('stroke',STROKE); frame.setAttribute('stroke-width','2');
+    svg.appendChild(frame);
+
+    el.innerHTML=''; el.appendChild(svg);
+  }
+
+  // ---------- state ----------
+  let questions=[];
+  let idx=0;
+  let score=0;
+  let stepMode=0; // 0 have, 1 delete, 2 left
+
+  // ---------- generator (like, proper, positive non-zero result) ----------
+  function makeOne(){
+    const d = rnd(2,12);
+    const a = rnd(2, d-1);     // at least 2 so we can subtract ≥1
+    const b = rnd(1, a-1);     // ensures a-b >= 1 (no zero)
+    const [ansN, ansD] = simplify(a-b, d);
+    return {a,b,d, ansN, ansD};
+  }
+  function buildSet(n=10){
+    const set=[];
+    while(set.length<n){
+      const q = makeOne();
+      const key = `${q.d}|${q.a}|${q.b}`;
+      if(!set.some(x=>`${x.d}|${x.a}|${x.b}`===key)) set.push(q);
+    }
+    return set;
+  }
+
+  // ---------- load question ----------
+  function showQuestion(){
+    const q = questions[idx];
+    qs('#progress').textContent = `Question ${idx+1} of ${questions.length}`;
+    qs('#aN').textContent=q.a; qs('#aD').textContent=q.d;
+    qs('#bN').textContent=q.b; qs('#bD').textContent=q.d;
+    qs('#fracA').setAttribute('aria-label', `${q.a} over ${q.d}`);
+    qs('#fracB').setAttribute('aria-label', `${q.b} over ${q.d}`);
+
+    qs('#inN').value=''; qs('#inD').value='';
+    const st=qs('#status'); st.textContent=' '; st.className='status';
+
+    stepMode=0;
+    renderSteps();
+  }
+
+  function renderSteps(){
+    const q = questions[idx];
+    drawSubBar(qs('#barAns'), q.d, q.a, q.b, stepMode);
+    qs('#steps').textContent =
+      stepMode===0 ? 'Step 1: show what you have'
+    : stepMode===1 ? 'Step 2: show parts to delete'
+    : 'Step 3: show what is left';
+  }
+
+  // ---------- checking & flow ----------
+  function checkAnswer(){
+    const q = questions[idx];
+    const st=qs('#status');
+    const n = Number(qs('#inN').value);
+    const d = Number(qs('#inD').value);
+
+    if(!Number.isInteger(n) || !Number.isInteger(d) || d<=0){
+      st.textContent='Enter whole numbers (n/d).'; st.className='status no'; return;
+    }
+    // proper, non-zero, denominator 2–12
+    if(d<2 || d>12 || n<=0 || n>=d){
+      st.textContent='Answer must be a proper fraction with denominator 2–12 (not zero).';
+      st.className='status no'; return;
+    }
+    const [sn,sd] = simplify(n,d);
+    if(sn===q.ansN && sd===q.ansD){
+      st.textContent='Correct!'; st.className='status ok';
+      score++; qs('#score').textContent = String(score);
+      stepMode=2; renderSteps();
+      setTimeout(nextQuestion, 700);
+    } else {
+      st.textContent='Try again'; st.className='status no';
+    }
+  }
+
+  function nextQuestion(){
+    idx++;
+    if(idx < questions.length){
+      showQuestion();
+    } else {
+      finishQuiz();
+    }
+  }
+  function finishQuiz(){
+    const sum = qs('#summary');
+    sum.style.display='block';
+    sum.innerHTML = `<b>Quiz complete!</b> You scored <b>${score}/${questions.length}</b>.`;
+    // lock controls
+    qs('#check').disabled=true;
+    qs('#steps').disabled=true;
+    qs('#skip').disabled=true;
+    qs('#progress').textContent='Finished';
+  }
+
+  // ---------- events ----------
+  qs('#check').addEventListener('click', checkAnswer);
+  qs('#inN').addEventListener('keydown', e=>{ if(e.key==='Enter') checkAnswer(); });
+  qs('#inD').addEventListener('keydown', e=>{ if(e.key==='Enter') checkAnswer(); });
+  qs('#steps').addEventListener('click', ()=>{ stepMode=(stepMode+1)%3; renderSteps(); });
+  qs('#skip').addEventListener('click', nextQuestion);
+
+  // ---------- init ----------
+  questions = buildSet(10);
+  showQuestion();
+})();
+</script>
+</body>
+</html>
